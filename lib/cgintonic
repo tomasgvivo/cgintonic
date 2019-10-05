@@ -1,0 +1,32 @@
+const fs = require('fs');
+const { createServer } = require('node-fastcgi');
+const { spawn } = require('child_process');
+
+fs.unlinkSync('/var/socket/cgintonic.socket');
+
+// Create socket file
+const server = createServer((req, res) => {
+    const child = spawn(process.argv[0], ['/app/lib/cgintonic-runtime'], {
+        env: {
+            ...process.env,
+            ...req.cgiParams
+        }
+    });
+
+    child.stdout.on('data', data => {
+        console.log(data.toString());
+        res.write(data);
+    });
+
+    child.stderr.on('data', error => {
+        console.error(error.toString());
+    });
+
+    child.on('close', () => {
+        res.end();
+    });
+});
+
+server.listen('/var/socket/cgintonic.socket', () => {
+    fs.chmodSync('/var/socket/cgintonic.socket', 0o666);
+});
